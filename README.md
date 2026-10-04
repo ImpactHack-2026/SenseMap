@@ -1,4 +1,6 @@
 # SenseMap
+*For ImpactHack 2026*
+
 A star rating tells you if the food is good. It doesn't tell you if the room is painfully loud, lit by harsh fluorescent lights, or packed shoulder to shoulder at 7pm. For people with autism, sensory processing differences, migraines, or anxiety, those details decide whether a night out is enjoyable or unbearable, and right now the only way to find out is to show up and hope.
 
 SenseMap fixes that. Search for a place in Fremont and our AI reads its public reviews, pulling out what people say about noise, lighting, crowding, and smells. It returns a clear sensory profile with:
@@ -17,4 +19,3 @@ Built with: React, Node.js, Google Places API, Claude API.
 
 AI Tools Used for this Project: 
 
-*For ImpactHack 2026*
