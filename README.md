@@ -14,3 +14,5 @@ CalmMap never claims a place is guaranteed safe or quiet. It helps you make a mo
 What's next: CalmMap is launching in Fremont only, so we can check its accuracy closely in one city. Next we plan to expand to nearby Bay Area cities, add photo-based lighting analysis, and let users set personal sensitivity preferences.
 
 Built with: React, Node.js, Google Places API, Claude API.
+
+AI Tools Used for this Project: 
