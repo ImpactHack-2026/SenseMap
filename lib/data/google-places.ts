@@ -1,5 +1,5 @@
 import 'server-only'
-import { analyzeReviews } from '../analysis/analyze-reviews'
+import { analyzeReviewsSmart } from '../analysis'
 import type { PlaceInfo, Restaurant } from '../types'
 
 const FIELD_MASK = [
@@ -43,7 +43,7 @@ interface GooglePlace {
   outdoorSeating?: boolean
 }
 
-function toRestaurant(p: GooglePlace): Restaurant {
+async function toRestaurant(p: GooglePlace): Promise<Restaurant> {
   const name = p.displayName?.text ?? 'Unnamed restaurant'
   const reviews = (p.reviews ?? [])
     .filter((r) => r.text?.text)
@@ -71,7 +71,7 @@ function toRestaurant(p: GooglePlace): Restaurant {
       hours: p.regularOpeningHours?.weekdayDescriptions ?? [],
       mapsUrl: p.googleMapsUri,
     },
-    sensory: analyzeReviews(reviews, { outdoorSeating: p.outdoorSeating, types: p.types }),
+    sensory: await analyzeReviewsSmart(reviews, { outdoorSeating: p.outdoorSeating, types: p.types }, name),
   }
 }
 
@@ -93,5 +93,17 @@ export async function fetchGoogleRestaurants(apiKey: string): Promise<Restaurant
   })
   if (!res.ok) throw new Error(`Google Places request failed: ${res.status}`)
   const data = (await res.json()) as { places?: GooglePlace[] }
-  return (data.places ?? []).map(toRestaurant)
+
+  // Analyze each place independently so one failing place never breaks the batch.
+  const results = await Promise.all(
+    (data.places ?? []).map(async (p) => {
+      try {
+        return await toRestaurant(p)
+      } catch (error) {
+        console.error('[sensemap] failed to analyze place:', error)
+        return null
+      }
+    }),
+  )
+  return results.filter((r): r is Restaurant => r !== null)
 }

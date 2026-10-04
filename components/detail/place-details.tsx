@@ -38,14 +38,17 @@ export function PlaceDetails({ restaurant }: { restaurant: Restaurant }) {
             ))}
           </ul>
         </div>
-      ) : null}
-
-      <div className="rounded-2xl bg-secondary p-5 text-xs leading-relaxed text-muted-foreground">
+      ) : null}      <div className="rounded-2xl bg-secondary p-5 text-xs leading-relaxed text-muted-foreground">
         <p>
-          SenseMap estimates are generated from public reviews and may not reflect every visit. Sensory conditions can
-          change by day, time, and event.
+          SenseMap estimates are generated from public reviews and may not reflect every visit. Sensory conditions
+          can change by day, time, and event.
         </p>
         <p className="mt-2">
+          {sensory.method === 'llm-v1'
+            ? `Estimated by AI review analysis${sensory.aiProvider ? ` (${sensory.aiProvider})` : ''}.`
+            : sensory.method === 'review-keyword-v1'
+              ? 'Estimated by SenseMap\u2019s transparent keyword analysis of public reviews.'
+              : 'Illustrative demo profile for a fictional restaurant.'}{' '}
           Analyzed {new Date(sensory.analyzedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}.
         </p>
       </div>
