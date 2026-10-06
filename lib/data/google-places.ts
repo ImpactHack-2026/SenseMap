@@ -2,6 +2,16 @@ import 'server-only'
 import { analyzeReviewsSmart } from '../analysis'
 import type { PlaceInfo, Restaurant } from '../types'
 
+/**
+ * Google Places (new v1) client — live, per-request lookups only.
+ *
+ * Data policy (docs/DATA_POLICY.md): Place IDs may be stored long-term, but
+ * names, addresses, ratings, photos, and reviews must NOT be persisted — they
+ * exist only in this process's memory for the current request. The analyzer
+ * below may send up to the five reviews Google returns to an inference-only
+ * LLM; see the policy's §3 before changing what leaves this module.
+ */
+
 const FIELD_MASK = [
   'places.id',
   'places.displayName',
@@ -89,6 +99,9 @@ export async function fetchGoogleRestaurants(apiKey: string): Promise<Restaurant
       pageSize: 20,
       locationBias: { circle: { center: { latitude: 37.5485, longitude: -121.9886 }, radius: 12000 } },
     }),
+    // Known deviation from data-policy decision D3 (docs/DATA_POLICY.md):
+    // Google content must not be cached beyond the current request — this
+    // 6-hour revalidation is scheduled for removal in Phase 2.
     next: { revalidate: 60 * 60 * 6 },
   })
   if (!res.ok) throw new Error(`Google Places request failed: ${res.status}`)

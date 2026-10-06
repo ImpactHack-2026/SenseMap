@@ -56,6 +56,15 @@ The AI provider is picked automatically in this order, or forced with `AI_PROVID
 
 The prompt asks the model to estimate each factor from review evidence only, quote excerpts verbatim, and mark low-mention factors as "limited" confidence. `lib/analysis/llm-analyzer.ts` then validates every field and re-derives anything missing.
 
+## Data & compliance
+
+SenseMap treats Google Places as a **live source, not a database**. The full boundary — including team sign-off decisions — lives in [docs/DATA_POLICY.md](docs/DATA_POLICY.md). In short:
+
+- **Stored long-term:** Google Place IDs (exempt from Places storage restrictions), the fictional demo dataset, and — once added — app-owned data (saved Place IDs, the user's own feedback). Google names, addresses, ratings, photos, and reviews are **never** persisted.
+- **Displayed:** Google content is fetched on the user's request and shown with attribution and a link to its source. Search results are ranked matches, not an exhaustive census of a city's restaurants.
+- **Sent to the analyzer:** at most the five reviews Google returns per place, to an inference-only LLM endpoint (never used as training data), keys server-side, with the keyword analyzer as a keyless fallback. Review-derived sensory profiles are **not persisted** while their source is Google review text.
+- **Logged:** counts, place names, and error codes — no review text.
+
 ## Getting started
 
 ```bash
@@ -103,7 +112,7 @@ lib/
 
 ## Roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the phased plan: real-data rollout, accuracy validation, photo-based lighting analysis, personal sensitivity preferences, and Bay Area expansion.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the phased plan: real-data rollout, accuracy validation, photo-based lighting analysis, personal sensitivity preferences, and Bay Area expansion — all governed by the [data & compliance policy](docs/DATA_POLICY.md), which takes precedence where they differ.
 
 ## Limitations
 

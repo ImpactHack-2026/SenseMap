@@ -2,6 +2,8 @@
 
 Status legend: ✅ done · 🚧 in progress · ⬜ planned
 
+> **Data & compliance track:** every phase below builds on [docs/DATA_POLICY.md](DATA_POLICY.md), which defines what SenseMap may store, display, and send to the analyzer. Where this roadmap and the data policy disagree, the policy wins.
+
 ## Phase 0 — Foundation ✅
 
 - Next.js 16 (App Router, React 19, TypeScript, Tailwind v4) project scaffold
@@ -22,10 +24,10 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 ## Phase 2 — Real data rollout 🚧
 
 - Add a `GOOGLE_PLACES_API_KEY` and validate AI-generated profiles against a hand-checked sample of ~20 Fremont venues
-- Persist generated profiles (SQLite/Postgres) with a TTL so AI cost is paid once per venue, not per page view
-- Background re-analysis job: refresh profiles weekly and on new-review signals
+- Make the Places integration server-only and live: search/detail routes, `pageSize: 20` with `nextPageToken` pass-through, and **remove all caching of Google content** (6-hour revalidate, 24-hour photo cache) per data-policy decision D3
+- Reduce analyzer cost with request-scoped memoization only — **generated profiles are not persisted** while they derive from Google reviews (data-policy decision D5); revisit if/when storage is confirmed or profiles move to first-party/licensed review data
 - Search-as-you-type via the Places Autocomplete API; deep-link from a place's Google listing
-- Expand beyond the initial 20-place text search to neighborhood-by-neighborhood crawl of Fremont
+- Paginated, on-demand search beyond the first 20 results (chain branches keyed by Place ID) — **no background crawler** that pre-loads Fremont listings into a Google-content database (data-policy decision D8)
 
 ## Phase 3 — Accuracy & trust ⬜
 
@@ -53,3 +55,4 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 2. **Show the evidence** — every estimate links to the review excerpts behind it.
 3. **Degrade gracefully** — any provider outage falls back, never errors in the user's face.
 4. **Accessibility is not a phase** — new features ship with keyboard support, contrast, and non-color signaling from day one.
+5. **Store only what we own** — Place IDs and app-owned data persist; Google content is fetched live, displayed with attribution, and never kept (see [docs/DATA_POLICY.md](DATA_POLICY.md)).
