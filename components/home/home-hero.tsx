@@ -75,7 +75,7 @@ export function HomeHero({ source, count }: { source: DataSource; count: number 
           />
         </div>
         <div className="absolute -bottom-5 left-4 right-4 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur sm:left-auto sm:right-6 sm:w-72">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sensory snapshot</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Example sensory snapshot</p>
           <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-muted-foreground">Noise</dt>
             <dd className="font-medium">Very quiet</dd>

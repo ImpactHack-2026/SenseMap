@@ -12,7 +12,7 @@ export function CalmPicks({ restaurants }: { restaurants: Restaurant[] }) {
             <h2 id="calm-picks-heading" className="font-serif text-3xl font-medium tracking-tight">
               Calmer places to start with
             </h2>
-            <p className="mt-2 text-muted-foreground">Highest SenseMap Scores in Fremont right now.</p>
+            <p className="mt-2 text-muted-foreground">Highest SenseMap Scores among the places we&apos;ve analyzed.</p>
           </div>
           <Link
             href="/explore"

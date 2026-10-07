@@ -4,6 +4,7 @@ import type {
   IntensityLevel,
   LightingLevel,
   NoiseLevel,
+  PlaceInfo,
   Restaurant,
   RestaurantFilters,
   SeatingOption,
@@ -53,9 +54,12 @@ export const TIME_WINDOW_LABELS: Record<TimeWindow, string> = {
   dinner: 'Dinner',
   'late-evening': 'Late evening',
 }
+// Scoped to the review sample on purpose (docs/DATA_POLICY.md D6): Google
+// returns at most five reviews per place, so a label must never imply the
+// estimate rests on broad coverage of a venue's review history.
 export const CONFIDENCE_LABELS: Record<Confidence, string> = {
-  high: 'High confidence',
-  medium: 'Medium confidence',
+  high: 'High confidence (this review sample)',
+  medium: 'Medium confidence (this review sample)',
   limited: 'Limited evidence',
 }
 
@@ -99,6 +103,18 @@ export function formatHour(hour: number): string {
   return `${h} ${suffix}`
 }
 
+/**
+ * The Google Maps source URL for a place — every attribution link points
+ * here so readers can reach the listing an excerpt or estimate came from
+ * (docs/DATA_POLICY.md D2 / §2 row 3).
+ */
+export function googleMapsUrl(place: PlaceInfo): string {
+  return (
+    place.mapsUrl ??
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.address}`)}`
+  )
+}
+
 export function distanceMiles(
   a: { latitude: number; longitude: number },
   b: { latitude: number; longitude: number },
@@ -136,16 +152,40 @@ export function activeFilterCount(f: RestaurantFilters): number {
   )
 }
 
+/**
+ * Substring match over the place fields a query searches. Shared by the
+ * browse filters here and the search route's demo branch, so typing the same
+ * text yields the same matches in either mode.
+ */
+export function placeMatchesQuery(place: PlaceInfo, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const haystack = [place.name, place.cuisine, place.neighborhood, place.address, ...place.categories]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(q)
+}
+
+/**
+ * Appends a new search page to existing results, keeping each Place ID once.
+ * Chain branches are distinct places (their own Place IDs); duplicates can
+ * only appear if a provider repeats an id across pages.
+ */
+export function mergeSearchResults(existing: PlaceInfo[], incoming: PlaceInfo[]): PlaceInfo[] {
+  const seen = new Set(existing.map((p) => p.placeId))
+  const merged = [...existing]
+  for (const place of incoming) {
+    if (seen.has(place.placeId)) continue
+    seen.add(place.placeId)
+    merged.push(place)
+  }
+  return merged
+}
+
 export function applyFilters(restaurants: Restaurant[], f: RestaurantFilters): Restaurant[] {
-  const q = f.query.trim().toLowerCase()
   return restaurants.filter(({ place, sensory }) => {
-    if (q) {
-      const haystack = [place.name, place.cuisine, place.neighborhood, place.address, ...place.categories]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      if (!haystack.includes(q)) return false
-    }
+    if (!placeMatchesQuery(place, f.query)) return false
     if (f.noise.length && !f.noise.includes(sensory.noise.level)) return false
     if (f.lighting.length && !f.lighting.includes(sensory.lighting.level)) return false
     if (f.crowding.length && !f.crowding.includes(sensory.crowding.level)) return false

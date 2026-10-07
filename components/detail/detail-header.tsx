@@ -1,7 +1,9 @@
 import Image from 'next/image'
 import { Clock } from 'lucide-react'
 import type { DataSource, Restaurant } from '@/lib/types'
+import { isStoreConfigured } from '@/lib/data/store'
 import { ConfidenceBadge, DataSourceBadge, GoogleRating, ScoreBadge } from '@/components/sensory/primitives'
+import { SaveButton } from './save-button'
 
 export function DetailHeader({ restaurant, source }: { restaurant: Restaurant; source: DataSource }) {
   const { place, sensory } = restaurant
@@ -41,6 +43,9 @@ export function DetailHeader({ restaurant, source }: { restaurant: Restaurant; s
           <div className="mt-2">
             <GoogleRating rating={place.googleRating} count={place.reviewCount} />
           </div>
+          <div className="mt-4">
+            <SaveButton placeId={place.placeId} configured={isStoreConfigured()} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 border-t border-border pt-6">
@@ -48,7 +53,20 @@ export function DetailHeader({ restaurant, source }: { restaurant: Restaurant; s
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <ConfidenceBadge confidence={sensory.confidence} />
             <span className="text-xs text-muted-foreground">
-              Based on {sensory.analyzedReviewCount} {sensory.analyzedReviewCount === 1 ? 'review' : 'reviews'}
+              {source === 'google' ? (
+                // D6: Google-derived estimates must state they rest on at
+                // most the five reviews Google returns per place.
+                <>
+                  Based on {sensory.analyzedReviewCount}{' '}
+                  {sensory.analyzedReviewCount === 1 ? 'review' : 'reviews'}. Google returns at most five reviews per
+                  place — estimates rest on that sample, not the full review history.
+                </>
+              ) : (
+                <>
+                  Based on {sensory.analyzedReviewCount}{' '}
+                  {sensory.analyzedReviewCount === 1 ? 'review' : 'reviews'}
+                </>
+              )}
             </span>
           </div>
           <p className="flex items-center gap-2 rounded-xl bg-calm-soft px-4 py-3 text-sm">

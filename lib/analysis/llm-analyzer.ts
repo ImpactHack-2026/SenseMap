@@ -180,7 +180,14 @@ async function callGemini(provider: AIProvider, system: string, user: string): P
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`Gemini API error ${res.status}`)
-  const data = (await res.json()) as GeminiResponse
+  let data: GeminiResponse
+  try {
+    data = (await res.json()) as GeminiResponse
+  } catch {
+    // Fixed message: JSON parse errors can quote the response body, which
+    // may contain review text (docs/DATA_POLICY.md D7).
+    throw new Error('Gemini returned a non-JSON response')
+  }
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('')
   if (!text) throw new Error('Gemini returned no content')
   return text
@@ -210,7 +217,14 @@ async function callOpenAICompatible(provider: AIProvider, system: string, user: 
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`AI API error ${res.status} (${provider.label})`)
-  const data = (await res.json()) as OpenAIChatResponse
+  let data: OpenAIChatResponse
+  try {
+    data = (await res.json()) as OpenAIChatResponse
+  } catch {
+    // Fixed message: JSON parse errors can quote the response body, which
+    // may contain review text (docs/DATA_POLICY.md D7).
+    throw new Error('AI returned a non-JSON response')
+  }
   const text = data.choices?.[0]?.message?.content
   if (!text) throw new Error('AI returned no content')
   return text
@@ -224,7 +238,13 @@ export function parseLLMJson(text: string): unknown {
   const start = t.indexOf('{')
   const end = t.lastIndexOf('}')
   if (start === -1 || end === -1 || end <= start) throw new Error('No JSON object found in model output')
-  return JSON.parse(t.slice(start, end + 1))
+  try {
+    return JSON.parse(t.slice(start, end + 1))
+  } catch {
+    // V8's parse errors quote the input, and model output can contain review
+    // text — logs must never retain it (docs/DATA_POLICY.md D7 / §4 gap).
+    throw new Error('Model output was not valid JSON')
+  }
 }
 
 // ---------------------------------------------------------------------------

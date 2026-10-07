@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Clock, MapPin } from 'lucide-react'
 import type { Restaurant } from '@/lib/types'
-import { distanceMiles, FREMONT_CENTER } from '@/lib/sensory'
+import { distanceMiles, FREMONT_CENTER, googleMapsUrl } from '@/lib/sensory'
 import { factorViews } from './sensory/factors'
 import { FactorPill, GoogleRating, ScoreBadge } from './sensory/primitives'
 
@@ -25,6 +25,11 @@ export function RestaurantCard({ restaurant, priority = false }: { restaurant: R
             sizes="(min-width: 640px) 256px, 100vw"
             className="object-cover"
           />
+        ) : null}
+        {photo?.attribution ? (
+          <p className="absolute bottom-2 right-3 z-10 rounded bg-black/50 px-2 py-0.5 text-xs text-white">
+            Photo: {photo.attribution}
+          </p>
         ) : null}
       </div>
 
@@ -70,6 +75,23 @@ export function RestaurantCard({ restaurant, priority = false }: { restaurant: R
           <span className="text-muted-foreground">Best time:</span>
           <span className="font-medium">{sensory.bestTimeLabel}</span>
         </p>
+
+        {restaurant.source === 'google' ? (
+          // D2 + D6: attribution with a route to the source, and the
+          // ≤5-review sample stated wherever Google-derived estimates show.
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            SenseMap estimates from up to five Google reviews ·{' '}
+            <a
+              href={googleMapsUrl(place)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Data from Google
+              <span className="sr-only">— opens the source listing in a new tab</span>
+            </a>
+          </p>
+        ) : null}
       </div>
     </article>
   )
