@@ -8,21 +8,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid photo request' }, { status: 400 })
   }
 
-  // Known deviation from data-policy decision D3 (docs/DATA_POLICY.md):
-  // Google content must not be cached beyond the current request — these
-  // 24-hour caches are scheduled for removal in Phase 2.
-  const upstream = await fetch(
-    `https://places.googleapis.com/v1/${name}/media?maxWidthPx=1200&key=${apiKey}`,
-    { next: { revalidate: 60 * 60 * 24 } },
-  )
+  // Google content is never cached beyond this request (docs/DATA_POLICY.md D3).
+  let upstream: Response
+  try {
+    upstream = await fetch(`https://places.googleapis.com/v1/${name}/media?maxWidthPx=1200&key=${apiKey}`, {
+      cache: 'no-store',
+    })
+  } catch (error) {
+    // Message only: never log the request object or URL (the key lives in it).
+    console.error('[sensemap] photo proxy fetch failed:', error instanceof Error ? error.message : 'unknown error')
+    return NextResponse.json({ error: 'Photo unavailable' }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
+  }
   if (!upstream.ok || !upstream.body) {
-    return NextResponse.json({ error: 'Photo unavailable' }, { status: 502 })
+    return NextResponse.json({ error: 'Photo unavailable' }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
   }
 
   return new NextResponse(upstream.body, {
     headers: {
       'Content-Type': upstream.headers.get('Content-Type') ?? 'image/jpeg',
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      'Cache-Control': 'no-store',
     },
   })
 }

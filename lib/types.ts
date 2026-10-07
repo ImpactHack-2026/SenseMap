@@ -120,3 +120,61 @@ export interface RestaurantFilters {
   intensity: IntensityLevel[]
   bestTime: TimeWindow[]
 }
+
+/** JSON body of `GET /api/places/search` (docs/DATA_POLICY.md §6, Phase 2). */
+export interface PlacesSearchResponse {
+  source: DataSource
+  query: string
+  pageSize: number
+  places: PlaceInfo[]
+  /** Google's continuation token for the next page; null on the last page. */
+  nextPageToken: string | null
+}
+
+/** JSON body of `GET /api/places/[placeId]`. */
+export interface PlaceDetailResponse {
+  source: DataSource
+  restaurant: Restaurant
+}
+
+// ---------------------------------------------------------------------------
+// App-owned data (Phase 3 — docs/DATA_POLICY.md D1/D8). Never Google content.
+// ---------------------------------------------------------------------------
+
+/** A place a user saved — keyed by Place ID only. */
+export interface SavedPlace {
+  placeId: string
+  createdAt: string
+}
+
+/** A visitor's own sensory note about a place — stored only with consent. */
+export interface SensoryFeedback {
+  id: string
+  placeId: string
+  factor: SensoryFactorKey
+  note: string | null
+  visitTime: string | null
+  consent: boolean
+  createdAt: string
+}
+
+export interface SavedPlacesResponse {
+  savedPlaces: SavedPlace[]
+}
+
+export interface SavePlaceResponse {
+  saved: SavedPlace
+  alreadySaved: boolean
+}
+
+export interface RemovePlaceResponse {
+  removed: boolean
+}
+
+export interface FeedbackListResponse {
+  feedback: SensoryFeedback[]
+}
+
+export interface FeedbackCreatedResponse {
+  feedback: SensoryFeedback
+}

@@ -114,6 +114,12 @@ export function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
 
 export function DataSourceBadge({ source, className }: { source: DataSource; className?: string }) {
   const Icon = source === 'google' ? Database : Info
+  const content = (
+    <>
+      <Icon className="size-3.5" aria-hidden="true" />
+      {source === 'google' ? 'Live Google Places data' : 'Demo data — fictional Fremont restaurants'}
+    </>
+  )
   return (
     <span
       className={cn(
@@ -121,8 +127,21 @@ export function DataSourceBadge({ source, className }: { source: DataSource; cla
         className,
       )}
     >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {source === 'google' ? 'Live Google Places data' : 'Demo data — fictional Fremont restaurants'}
+      {source === 'google' ? (
+        // D2: displayed Google content carries attribution with a route to
+        // its source.
+        <a
+          href="https://www.google.com/maps"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {content}
+          <span className="sr-only">— opens Google Maps in a new tab</span>
+        </a>
+      ) : (
+        content
+      )}
     </span>
   )
 }

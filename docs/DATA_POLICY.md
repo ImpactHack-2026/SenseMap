@@ -27,7 +27,7 @@ Constraints driving this policy (per Google's Maps Platform terms and API docume
 |---|---|---|---|---|---|
 | 1 | **Google Place IDs** | `ChIJ…` | ✅ **Yes** — exempt from storage restrictions; the only Google identifier we keep long-term | ✅ As the stable key for live lookups | ✅ Only as an internal lookup key (not currently sent) |
 | 2 | **Google place details** | name, address, coordinates, rating, review count, hours, price level, types, `googleMapsUri` | ❌ **No** — fetch live per user request | ✅ Live, with attribution and "data from Google" labeling | ⚠️ Minimal subset only: venue name, venue types, outdoor-seating flag (prompt context) |
-| 3 | **Google review text** | review body, author display name, relative time | ❌ **No** — not in DB, caches, or persistent logs | ⚠️ Short verbatim excerpts only, with author + "via Google" + link to source (Phase 5) | ✅ **Inference only** — see §3 |
+| 3 | **Google review text** | review body, author display name, relative time | ❌ **No** — not in DB, caches, or persistent logs | ⚠️ Short verbatim excerpts only, with author + "via Google" + link to source (source links added in Phase 5) | ✅ **Inference only** — see §3 |
 | 4 | **Google photos** | photo media bytes | ❌ **No** — proxy streams through the server; no stored copies | ✅ Via `/api/places/photo` proxy with photographer attribution | ❌ Never |
 | 5 | **Review-derived sensory profile** (`SensoryProfile` built from Google reviews) | SenseMap Score, factor levels, hourly chart, evidence excerpts | ❌ **Not until confirmed** — do not persist while its source is Google review text (see D5) | ✅ Live per request, labeled with method (`llm-v1` / `review-keyword-v1`), sample size, and confidence | n/a (it *is* the analyzer output) |
 | 6 | **Demo dataset** | fictional Fremont venues in `lib/data/demo-restaurants.ts` | ✅ **Yes** — first-party fictional content | ✅ Always labeled as demo/fictional | ✅ (curated illustrative excerpts) |
@@ -35,6 +35,8 @@ Constraints driving this policy (per Google's Maps Platform terms and API docume
 | 8 | **Logs / telemetry / error reports** | counts, place names, provider labels, error status codes | ✅ Aggregate only | n/a | ❌ **No review text, ever** (see §4) |
 
 **What "no storage" means in practice:** no database rows, no filesystem writes, no Redis/disk caches, no analytics events, no `s-maxage`/`revalidate` caching of Google responses beyond serving the current request, no feature flags that snapshot Places content.
+
+**Retrieval channels.** Google Maps content reaches the app through exactly two transports: the official Places API (`GOOGLE_PLACES_API_KEY`, preferred) and SerpAPI (`SERPAPI_KEY`, used only when the official key is absent). SerpAPI is transport, not a new data source — everything it returns originates from Google Maps listings, keeps `source: 'google'` labeling and Google attribution, is fetched with `cache: 'no-store'` per request, and is held to every rule above, including the ≤5-review analyzer sample (D6/D4) and status-only logging (D7). Because its free tier is quota-limited (~100 searches/month), the SSR list is bounded to 6 analyzed places per render and any SerpAPI failure degrades to the clearly labeled demo dataset instead of erroring.
 
 ---
 
@@ -44,7 +46,9 @@ Constraints driving this policy (per Google's Maps Platform terms and API docume
 
 ```
 Google Place resource (≤5 reviews)
-  → lib/data/google-places.ts      (in-memory, per request)
+  → lib/data/google-places.ts      (official API channel), or
+    lib/data/serpapi.ts            (SerpAPI transport, same rules)
+      (in-memory, per request)
   → lib/analysis/index.ts          (analyzeReviewsSmart)
   → lib/analysis/llm-analyzer.ts   (only when an AI key is configured)
       payload: venue name, venue types, outdoor-seating flag,
@@ -77,7 +81,7 @@ Verified by code search across `lib/` and `app/`:
 - `lib/data/restaurants.ts` logs the error object only. ✅
 - `lib/analysis/llm-analyzer.ts` throws fixed-status error strings (`Gemini API error 400`, `No JSON object found in model output`) — no payload echo. ✅
 - Photo route returns fixed JSON errors; place search has no debug endpoints. ✅
-- **Gap:** a `JSON.parse` failure message can quote a short fragment of model output, which may contain a review excerpt. Phase 6 should wrap parse failures in a fixed-message error so logs can never retain review text.
+- ~~Gap: a `JSON.parse` failure message can quote a short fragment of model output~~ — **resolved in Phase 6**: `parseLLMJson` and every provider `res.json()` (Gemini, OpenAI-compatible, Google Places search + details) now throw fixed-message errors, so a parse failure can never put review text or Places content into logs; pinned by `tests/analysis-d7.test.ts` and the route tests.
 
 No persistence layer exists yet, so there is nothing to migrate. When Phase 3 adds a database, the schema is limited to classes 1, 6, and 7 above.
 
@@ -91,12 +95,12 @@ Recommended answers are marked ✅ — Phase 1 is complete when the team accepts
 |---|---|---|---|
 | **D1** | What counts as "the database"? | Store **only** Google Place IDs + app-owned data (classes 1, 6, 7). Never store Google names, addresses, ratings, photos, raw reviews, or review-derived profiles. | ☐ |
 | **D2** | How is Google content served? | Fetched **live on user request** (Phase 2 server routes), displayed with required attribution and a link to the source, never presented as SenseMap's own data, never described as an exhaustive census. | ☐ |
-| **D3** | Caching of Google content | **Not permitted beyond the current request.** Decision: remove the 6-hour `next.revalidate` in `lib/data/google-places.ts` and the 24-hour cache headers in `app/api/places/photo/route.ts`. *Implementation is the first item of Phase 2; until then this is a known, tracked deviation.* | ☐ |
+| **D3** | Caching of Google content | **Not permitted beyond the current request.** Decision: remove the 6-hour `next.revalidate` in `lib/data/google-places.ts` and the 24-hour cache headers in `app/api/places/photo/route.ts`. *Implemented in Phase 2: every Google fetch now passes `cache: 'no-store'`, route responses send `Cache-Control: no-store`, and the photo proxy no longer caches.* | ☐ |
 | **D4** | What may be sent to the analyzer? | Google review text (≤5 reviews, verbatim excerpts required) + minimal venue context, to an **inference-only** LLM endpoint, keys server-side, kill switch available, never used as training data. AI stays off in production until §3 conditions are checked. | ☐ |
 | **D5** | Persist generated sensory profiles? | **No — not while they derive from Google reviews.** Revisit only after the applicable storage/analysis workflow is confirmed, or persist profiles derived from first-party / licensed review data instead. Cost-per-venue caching must use a permitted mechanism (e.g., short request-scoped memoization) in the meantime. | ☐ |
-| **D6** | Review-sample disclosure | All Google-derived estimates must state they rest on **up to five reviews**; confidence labels must not imply broad coverage (UI wording lands in Phase 5). | ☐ |
-| **D7** | Log/response retention | No review text or other Places content in logs, analytics, error reporting, or API responses beyond what the page displays. Enforced with tests in Phase 6. | ☐ |
-| **D8** | Future database scope (Phase 3) | Separate tables (`google_place_ids`, `saved_places`, `user_sensory_feedback`) with row-level security; **no** copied index of Google content; **no** background crawler pre-loading Fremont listings. Search stays on-demand and paginated (`nextPageToken`). | ☐ |
+| **D6** | Review-sample disclosure | All Google-derived estimates must state they rest on **up to five reviews**; confidence labels must not imply broad coverage (UI wording lands in Phase 5). *Implemented in Phase 5: the detail header states "Google returns at most five reviews per place — estimates rest on that sample", Google-source cards carry "SenseMap estimates from up to five Google reviews" next to a source link, the evidence section names the ≤5 sample, and confidence labels are scoped to "this review sample".* | ☐ |
+| **D7** | Log/response retention | No review text or other Places content in logs, analytics, error reporting, or API responses beyond what the page displays. Enforced with tests in Phase 6. *Implemented in Phase 6: `pnpm test` (24 tests in `tests/`) seeds a review-text canary and asserts it never appears in logs or error responses, pins every fixed upstream error message, and covers pagination, duplicate Place IDs, chain queries, missing keys, Google errors, and demo labeling — including the SerpAPI channel (`tests/serpapi-route.test.ts`: quota-failure degradation, status-only logs, five-review cap, summary-only search payloads).* | ☐ |
+| **D8** | Future database scope (Phase 3) | Separate tables (`google_place_ids`, `saved_places`, `user_sensory_feedback`) with row-level security; **no** copied index of Google content; **no** background crawler pre-loading Fremont listings. Search stays on-demand and paginated (`nextPageToken`). *Implemented in Phase 3: schema in `supabase/migrations/`, RLS enabled with zero public policies, service-role key server-only via `lib/data/store.ts`; only Place IDs + timestamps are recorded from Google paths.* | ☐ |
 
 **Sign-off**
 
@@ -109,18 +113,18 @@ Recommended answers are marked ✅ — Phase 1 is complete when the team accepts
 
 ## 6. Known deviations & what Phase 1 deliberately did *not* change
 
-Phase 1 sets the boundary; later phases implement against it. Current deviations from this policy (all tracked, none silent):
+Phase 1 sets the boundary; later phases implement against it. Status of the tracked items:
 
-1. **6-hour response cache on the Google search fetch** (`lib/data/google-places.ts`) and **24-hour cache headers on the photo proxy** (`app/api/places/photo/route.ts`) — remove in Phase 2 per D3.
-2. **Search is a single 20-result page** with no `nextPageToken` pass-through, so chain branches can be missed — Phase 4. Each branch is keyed distinctly by Place ID; results are labeled as ranked matches, not a census.
-3. **Attribution gaps:** photos show photographer attribution and excerpts show author + "via Google", but excerpts lack a direct source link and cards lack full attribution treatment — Phase 5.
-4. **Sample-size disclosure:** the detail page says "Based on N reviews" but does not yet warn that Google returns at most five — Phase 5 per D6.
+1. ~~6-hour response cache / 24-hour photo cache~~ — **resolved in Phase 2**: every Google fetch passes `cache: 'no-store'`, the API routes send `Cache-Control: no-store`, and the photo proxy no longer caches.
+2. ~~Explore still renders one server-fetched page.~~ — **resolved in Phase 4**: Explore queries `GET /api/places/search` with a debounced search-as-you-type and a "Show more results" load-more that follows `nextPageToken` (max 20 per page, deduped by Place ID). Live results render as summary cards whose links open the on-demand detail page; sensory filters and profile-based sorts are disabled while ranked summaries are shown; results are labeled as ranked matches, not a census (D2).
+3. ~~Attribution gaps~~ — **resolved in Phase 5**: excerpt attributions link directly to the place's Google listing ("via Google" anchor), every card shows "Data from Google" with a source link plus photographer credit on photos, and the page-level data badge links to Google Maps (D2).
+4. ~~Sample-size disclosure~~ — **resolved in Phase 5 (D6)**: the detail header states Google returns at most five reviews per place and the profile rests on that sample; Google-source cards state the same; confidence labels are scoped to the review sample.
 5. **`docs/ROADMAP.md` items that conflicted with this policy** (profile persistence, Fremont crawl) were amended to match D5/D8.
 
 ## 7. Where each later phase picks this up
 
-- **Phase 2** — server-only search/detail routes, `pageSize: 20` + `nextPageToken`, disable all Google caching (D3), key restrictions.
-- **Phase 3** — Supabase/Postgres for Place IDs + app-owned data only, RLS, service-role key server-side (D1, D8).
-- **Phase 4** — Explore queries the search route with debounce + load-more; chain-branch results; honest "ranked results" copy (D2).
-- **Phase 5** — per-location detail fetch, attribution + source links, ≤5-review sample disclosure, confidence-label revisit (D6, D2).
-- **Phase 6** — tests for pagination, duplicate Place IDs, chain queries, missing keys, Google errors; log/response review-text check (D7); demo data stays clearly labeled.
+- **Phase 2** — ✅ server-only search/detail routes (`/api/places/search`, `/api/places/[placeId]`), `pageSize: 20` + `nextPageToken` pass-through, reviews/photos fetched only where needed, all Google caching disabled (D3). Remaining console-side step: apply API-key restrictions (HTTP referrer + API allowlist) in Google Cloud.
+- **Phase 3** — ✅ Supabase for Place IDs + app-owned data only (`/api/saved`, `/api/feedback`, place-ID registry), RLS enabled with no public policies, service-role key server-side (D1, D8). User identity is an anonymous device-local UUID until accounts exist; consent is mandatory for every stored note.
+- **Phase 4** — ✅ Explore queries the search route with debounce + load-more; chain-branch results keyed by Place ID; honest "ranked results, not a census" copy (D2).
+- **Phase 5** — ✅ per-location detail fetch (detail screens never trigger the list-wide Google fetch), attribution + source links (excerpt "via Google" anchors, card "Data from Google" links, photo credits, linked data badge — D2), ≤5-review sample disclosure on every Google-derived estimate, and confidence labels scoped to the sample (D6, D2).
+- **Phase 6** — ✅ tests for pagination, duplicate Place IDs, chain queries, missing keys, Google errors (`tests/search-route.test.ts`, `tests/detail-route.test.ts`); log/response review-text check with a seeded canary (D7) plus the fixed-message parse-failure fix (`tests/analysis-d7.test.ts`, `tests/app-data.test.ts`); demo data stays clearly labeled. Run with `pnpm test` (Node's built-in runner, no new dependencies); CI runs typecheck → test → build.

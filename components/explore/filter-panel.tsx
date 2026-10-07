@@ -31,10 +31,13 @@ export function FilterPanel({
   filters,
   onChange,
   onReset,
+  disabled = false,
 }: {
   filters: RestaurantFilters
   onChange: (updater: (f: RestaurantFilters) => RestaurantFilters) => void
   onReset: () => void
+  /** Search-result mode: ranked summaries have no sensory profiles yet. */
+  disabled?: boolean
 }) {
   const baseId = useId()
   const toggle = (key: ArrayKey, value: string, checked: boolean) =>
@@ -48,36 +51,49 @@ export function FilterPanel({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">Sensory filters</p>
-        {activeFilterCount(filters) > 0 ? (
+        {!disabled && activeFilterCount(filters) > 0 ? (
           <Button variant="ghost" size="sm" onClick={onReset} className="h-8 px-2 text-primary">
             Reset
           </Button>
         ) : null}
       </div>
 
-      {GROUPS.map((group) => (
-        <fieldset key={group.key}>
-          <legend className="mb-2.5 text-sm font-medium">{group.title}</legend>
-          <div className="flex flex-col gap-2.5">
-            {Object.entries(group.options).map(([value, label]) => {
-              const id = `${baseId}-${group.key}-${value}`
-              const checked = (filters[group.key] as string[]).includes(value)
-              return (
-                <div key={value} className="flex items-center gap-2.5">
-                  <Checkbox
-                    id={id}
-                    checked={checked}
-                    onCheckedChange={(c) => toggle(group.key, value, c === true)}
-                  />
-                  <label htmlFor={id} className="cursor-pointer text-sm text-foreground/85">
-                    {label}
-                  </label>
-                </div>
-              )
-            })}
-          </div>
-        </fieldset>
-      ))}
+      {disabled ? (
+        <p
+          id={`${baseId}-disabled-note`}
+          className="rounded-xl border border-dashed border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground"
+        >
+          Sensory filters apply to places with a SenseMap profile. Ranked search results are summary
+          matches without profiles yet — clear the search to filter by sensory factors.
+        </p>
+      ) : null}
+
+      <div className="contents">
+        {GROUPS.map((group) => (
+          <fieldset key={group.key} disabled={disabled} className={disabled ? 'opacity-60' : undefined}>
+            <legend className="mb-2.5 text-sm font-medium">{group.title}</legend>
+            <div className="flex flex-col gap-2.5">
+              {Object.entries(group.options).map(([value, label]) => {
+                const id = `${baseId}-${group.key}-${value}`
+                const checked = (filters[group.key] as string[]).includes(value)
+                return (
+                  <div key={value} className="flex items-center gap-2.5">
+                    <Checkbox
+                      id={id}
+                      checked={checked}
+                      disabled={disabled}
+                      onCheckedChange={(c) => toggle(group.key, value, c === true)}
+                    />
+                    <label htmlFor={id} className="cursor-pointer text-sm text-foreground/85">
+                      {label}
+                    </label>
+                  </div>
+                )
+              })}
+            </div>
+          </fieldset>
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,13 +1,12 @@
 import { ExternalLink, MapPin } from 'lucide-react'
 import type { Restaurant } from '@/lib/types'
+import { googleMapsUrl } from '@/lib/sensory'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function PlaceDetails({ restaurant }: { restaurant: Restaurant }) {
   const { place, sensory } = restaurant
-  const mapsUrl =
-    place.mapsUrl ??
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${place.address}`)}`
+  const mapsUrl = googleMapsUrl(place)
 
   return (
     <aside aria-label="Place details" className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">

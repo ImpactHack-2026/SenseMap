@@ -24,10 +24,11 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 ## Phase 2 — Real data rollout 🚧
 
 - Add a `GOOGLE_PLACES_API_KEY` and validate AI-generated profiles against a hand-checked sample of ~20 Fremont venues
-- Make the Places integration server-only and live: search/detail routes, `pageSize: 20` with `nextPageToken` pass-through, and **remove all caching of Google content** (6-hour revalidate, 24-hour photo cache) per data-policy decision D3
+- ✅ Make the Places integration server-only and live: `GET /api/places/search` + `GET /api/places/[placeId]`, `pageSize: 20` with `nextPageToken` pass-through, and **all caching of Google content removed** (6-hour revalidate, 24-hour photo cache) per data-policy decision D3
 - Reduce analyzer cost with request-scoped memoization only — **generated profiles are not persisted** while they derive from Google reviews (data-policy decision D5); revisit if/when storage is confirmed or profiles move to first-party/licensed review data
-- Search-as-you-type via the Places Autocomplete API; deep-link from a place's Google listing
-- Paginated, on-demand search beyond the first 20 results (chain branches keyed by Place ID) — **no background crawler** that pre-loads Fremont listings into a Google-content database (data-policy decision D8)
+- ✅ App-owned data store (data-plan Phase 3): Supabase tables for seen Place IDs, saved places, and consented visitor notes — row-level security enabled with no public policies, service-role key server-only (`lib/data/store.ts`, `supabase/migrations/`); Google details stay live-fetched
+- Search-as-you-type via the Places Autocomplete API; deep-link from a place's Google listing. *(Data-plan Phase 4 already ships debounced search-as-you-type against Text Search; the Autocomplete API itself remains here.)*
+- ✅ Paginated, on-demand search beyond the first 20 results (chain branches keyed by Place ID) — **no background crawler** that pre-loads Fremont listings into a Google-content database (data-policy decision D8). *Implemented in data-plan Phase 4: Explore debounces queries against `GET /api/places/search`, follows `nextPageToken` with a load-more button, and dedupes pages by Place ID; live results show "ranked results, not a census" copy (D2)*
 
 ## Phase 3 — Accuracy & trust ⬜
 

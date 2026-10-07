@@ -23,7 +23,7 @@ const SECTIONS = [
   },
   {
     title: 'Confidence levels',
-    body: 'Each estimate shows how much evidence is behind it. "High confidence" means many reviews agree. "Limited evidence" means only a few reviews mentioned it, so treat it as a hint rather than a fact.',
+    body: 'Each estimate shows how much evidence is behind it, and every Google-derived estimate rests on the sample of at most five reviews Google returns per place — never the full review history. "High confidence (this review sample)" means the sampled reviews agree. "Limited evidence" means hardly any of them mentioned it, so treat it as a hint rather than a fact.',
   },
   {
     title: 'Limitations',

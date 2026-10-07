@@ -2,18 +2,26 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { getRestaurant, getRestaurants } from '@/lib/data/restaurants'
+import { getRestaurant } from '@/lib/data/restaurants'
+import { DEMO_RESTAURANTS } from '@/lib/data/demo-restaurants'
 import { DetailHeader } from '@/components/detail/detail-header'
 import { FactorGrid } from '@/components/detail/factor-grid'
 import { BestTimes } from '@/components/detail/best-times'
 import { EvidenceList } from '@/components/detail/evidence-list'
 import { PlaceDetails } from '@/components/detail/place-details'
+import { VisitorNotes } from '@/components/detail/visitor-notes'
 
 type Props = { params: Promise<{ id: string }> }
 
+/**
+ * Per-location detail fetch (docs/DATA_POLICY.md §7 Phase 5): the detail
+ * screen never triggers the list-wide Google fetch. Only the keyless demo
+ * slugs are pre-rendered; with a key, every id is fetched on demand via
+ * `getRestaurant` → `fetchPlaceDetail` for that one place.
+ */
 export async function generateStaticParams() {
-  const { restaurants, source } = await getRestaurants()
-  return source === 'demo' ? restaurants.map((r) => ({ id: r.id })) : []
+  if (process.env.GOOGLE_PLACES_API_KEY) return []
+  return DEMO_RESTAURANTS.map((r) => ({ id: r.id }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -47,9 +55,12 @@ export default async function RestaurantPage({ params }: Props) {
         <div className="flex min-w-0 flex-col gap-12">
           <FactorGrid sensory={restaurant.sensory} />
           <BestTimes sensory={restaurant.sensory} />
-          <EvidenceList sensory={restaurant.sensory} />
+          <EvidenceList sensory={restaurant.sensory} place={restaurant.place} source={source} />
         </div>
-        <PlaceDetails restaurant={restaurant} />
+        <div className="flex flex-col gap-8">
+          <PlaceDetails restaurant={restaurant} />
+          <VisitorNotes placeId={restaurant.place.placeId} />
+        </div>
       </div>
     </div>
   )
